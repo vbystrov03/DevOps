@@ -1,0 +1,10 @@
+services:
+  gitlab-runner:
+    image: gitlab/gitlab-runner:alpine3.21-17c92b34
+    container_name: gitlab-runner
+    privileged: true
+    restart: always
+    volumes:
+      - "/srv/gitlab-runner/config:/etc/gitlab-runner"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/etc/localtime:/etc/localtime:ro"

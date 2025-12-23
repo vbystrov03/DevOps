@@ -1,0 +1,57 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - monitoring
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --web.route-prefix=/prometheus
+      - --storage.tsdb.retention.time=10d
+      - --storage.tsdb.wal-compression
+
+  aspire:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:latest
+    container_name: aspire
+    ports:
+      - "18889:18889"  # gRPC OTLP
+      - "18890:18890"  # HTTP OTLP
+      - "18888:18888"
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true
+      - ASPIRE_ALLOW_UNSECURED_TRANSPORT=true
+      - DASHBOARD__TELEMETRYLIMITS__MAXLOGCOUNT=200000
+      - DASHBOARD__TELEMETRYLIMITS__MAXTRACECOUNT=200000
+      - DASHBOARD__TELEMETRYLIMITS__MAXMETRICSCOUNT=200000
+    networks:
+      - monitoring
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otel-collector
+    volumes:
+      - ./otel-collector-config.yaml:/otelcontribcol-config.yaml
+    command:
+      - --config=/otelcontribcol-config.yaml
+    ports:
+      - "4317:4317"    # OpenTelemetry gRPC receiver
+      - "4318:4318"    # OpenTelemetry http receiver
+      - "8889:8889"
+      - "8888:8888"
+      - "55679:55679"  # Zpage interface
+    networks:
+      - monitoring
+    depends_on:
+      - aspire
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+    driver: local
