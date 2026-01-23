@@ -1,0 +1,6 @@
+- name: Init HADatabase node
+  hosts: server
+  become: yes
+  roles:
+    - keepalived
+    - postgresql16

@@ -1,0 +1,61 @@
+scope: postgres-cluster
+name: node1  # Уникально для каждой ВМ (node1, node2, node3)
+
+restapi:
+  listen: 0.0.0.0:8008
+  connect_address: 192.168.122.141:8008 # IP текущей ВМ
+
+etcd3:
+  hosts:
+    - 192.168.122.141:2379
+    - 192.168.122.142:2379
+    - 192.168.122.143:2379
+
+bootstrap:
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      parameters:
+        archive_mode: "on"
+        archive_command: "mkdir -p /var/lib/postgresql/16/main/archive && test ! -f /var/lib/postgresql/16/main/archive/%f && cp %p /var/lib/postgresql/16/main/archive/%f"
+  initdb:
+  - encoding: UTF8
+  - data-checksums
+
+postgresql:
+  listen: 0.0.0.0:5432
+  connect_address: 192.168.122.141:5432 # IP текущей ВМ
+  data_dir: /var/lib/postgresql/16/main
+  bin_dir: /usr/lib/postgresql/16/bin
+  authentication:
+    replication:
+      username: postgres
+      password: postgres
+    superuser:
+      username: postgres
+      password: postgres
+  parameters:
+    unix_socket_directories: '/var/run/postgresql'
+  pg_hba:
+    # Локальные подключения
+    - local   all             all                                     trust
+    - host    all             all             127.0.0.1/32            trust
+    - host    all             all             ::1/128                 trust
+
+    # Репликация (все ноды в подсети 192.168.122.0/24)
+    - host    replication     postgres        192.168.122.0/24       md5
+    - local   replication     all                                     trust
+    - host    replication     all             127.0.0.1/32            trust
+    - host    replication     all             ::1/128                 trust
+
+    # Внешние подключения к БД(данный пример очень небезопасный)
+    - host    all     all        0.0.0.0/0       trust
+
+
+tags:
+  nosync: false
+  failover_priority: 50
