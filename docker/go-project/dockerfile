@@ -1,0 +1,19 @@
+FROM golang:alpine3.23 as builder
+
+COPY . /app/
+
+WORKDIR /app
+
+RUN go mod download
+
+RUN CGO_ENABLED=0 go build -o stars main.go
+
+FROM alpine:3
+
+WORKDIR /app
+
+COPY --from=builder /app/stars /app/stars
+
+EXPOSE 8080
+
+ENTRYPOINT ["./stars"]
