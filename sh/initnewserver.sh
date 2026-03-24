@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SSHKEY=""
-USERNAME="name"
-PASSWORD="123456"
+USERNAME="ansible"
+PASSWORD="12345678"
 
 apt-get update
 apt-get install -y mc htop wget curl python3 ssh
@@ -22,3 +22,5 @@ echo "$SSHKEY" > /home/$USERNAME/.ssh/authorized_keys
 chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
 chmod 700 /home/$USERNAME/.ssh
 chmod 600 /home/$USERNAME/.ssh/authorized_keys
+
+echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME

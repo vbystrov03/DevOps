@@ -1,0 +1,101 @@
+- name: Install Kafka (KRaft mode)
+  hosts: test-server
+  become: true
+  vars:
+    kafka_ver: "4.2.0" 
+  tasks:
+    - name: Update repos and install Java
+      ansible.builtin.apt:
+        name: default-jre
+        update_cache: true
+        state: present
+
+    - name: Create destination directory
+      ansible.builtin.file:
+        path: /opt/kafka
+        state: directory
+        mode: '0755'
+
+    - name: Download Kafka archive
+      ansible.builtin.get_url:
+        url: "https://downloads.apache.org/kafka/{{ kafka_ver }}/kafka_2.13-{{ kafka_ver }}.tgz"
+        dest: "/tmp/kafka_2.13-{{ kafka_ver }}.tgz"
+
+    - name: Unzip kafka
+      ansible.builtin.unarchive:
+        src: "/tmp/kafka_2.13-{{ kafka_ver }}.tgz"
+        dest: /opt/kafka
+        remote_src: yes
+        extra_opts: [--strip-components=1]
+
+    - name: Ensure binaries are executable
+      ansible.builtin.file:
+        path: /opt/kafka/bin/
+        mode: '0755'
+        recurse: yes
+
+    - name: Clean up archive
+      ansible.builtin.file:
+        path: "/tmp/kafka_2.13-{{ kafka_ver }}.tgz"
+        state: absent
+
+    - name: Create kafka user
+      ansible.builtin.user:
+        name: kafka
+        shell: /bin/false
+        system: yes
+
+    - name: Check if storage is already formatted
+      ansible.builtin.stat:
+        path: /tmp/kraft-combined-logs/meta.properties
+      register: storage_status
+
+    - name: Format Kafka storage
+      when: not storage_status.stat.exists
+      block:
+        - name: Generate Cluster ID
+          ansible.builtin.command: /opt/kafka/bin/kafka-storage.sh random-uuid
+          register: cluster_id
+
+        - name: Format storage directory
+          ansible.builtin.command: >
+            /opt/kafka/bin/kafka-storage.sh format 
+            --standalone
+            -t {{ cluster_id.stdout }} 
+            -c /opt/kafka/config/server.properties
+
+    - name: Final ownership fix
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: kafka
+        group: kafka
+        recurse: yes
+      loop:
+        - /opt/kafka
+        - /tmp/kraft-combined-logs
+
+    - name: Create Kafka systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/kafka.service
+        content: |
+          [Unit]
+          Description=Apache Kafka server (KRaft)
+          After=network.target
+
+          [Service]
+          Type=simple
+          User=kafka
+          Group=kafka
+          ExecStart=/opt/kafka/bin/kafka-server-start.sh /opt/kafka/config/server.properties
+          ExecStop=/opt/kafka/bin/kafka-server-stop.sh
+          Restart=on-abnormal
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Start Kafka service
+      ansible.builtin.systemd:
+        name: kafka
+        state: started
+        enabled: yes
+        daemon_reload: yes
