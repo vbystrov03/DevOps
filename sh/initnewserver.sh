@@ -2,7 +2,6 @@
 
 SSHKEY=""
 USERNAME="ansible"
-PASSWORD="12345678"
 
 apt-get update
 apt-get install -y mc htop wget curl python3 ssh
@@ -10,9 +9,6 @@ apt-get install -y mc htop wget curl python3 ssh
 # создать пользователя
 useradd -m -s /bin/bash $USERNAME
 usermod -aG sudo $USERNAME
-
-# установить пароль
-echo "$USERNAME:$PASSWORD" | chpasswd
 
 # создать ssh ключи
 mkdir -p /home/$USERNAME/.ssh
